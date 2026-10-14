@@ -1,0 +1,116 @@
+name: Digital License Manager Release
+description: Publish a software release to a Digital License Manager Pro store, so licensed customers get the update.
+author: CodeVerve
+branding:
+  icon: upload-cloud
+  color: blue
+
+inputs:
+  url:
+    description: Store URL, e.g. https://example.com. The action calls /wp-json/dlm/v1 on it.
+    required: true
+  consumer-key:
+    description: DLM API consumer key with Write permission and route 034 enabled. Keep it in a secret.
+    required: true
+  consumer-secret:
+    description: DLM API consumer secret. Keep it in a secret.
+    required: true
+  software-id:
+    description: ID of the software item in DLM (Software > ID column).
+    required: true
+  file:
+    description: Path to the release package, e.g. build/my-plugin.zip.
+    required: true
+  version:
+    description: Release version. Defaults to the pushed tag; v1.2.0 and my-plugin-pro-v1.2.0 both give 1.2.0.
+    required: false
+    default: ''
+  channel:
+    description: stable, rc, beta or alpha. Defaults to the version's suffix (none is stable, -rc rc, -beta beta, anything else alpha).
+    required: false
+    default: ''
+  changelog:
+    description: Release notes (Markdown). Defaults to the version's entry in the package's readme.txt.
+    required: false
+    default: ''
+  changelog-file:
+    description: File with the release notes, used when changelog is empty.
+    required: false
+    default: ''
+  tested-wp:
+    description: WordPress version tested up to. Defaults to the package's readme.txt or plugin header.
+    required: false
+    default: ''
+  requires-wp:
+    description: Minimum WordPress version. Defaults to the package's readme.txt or plugin header.
+    required: false
+    default: ''
+  requires-php:
+    description: Minimum PHP version. Defaults to the package's readme.txt or plugin header.
+    required: false
+    default: ''
+  upgrade-notice:
+    description: Upgrade notice shown in the WordPress update screen. Defaults to the version's entry in the readme.txt Upgrade Notice section.
+    required: false
+    default: ''
+  read-package:
+    description: Fill empty WordPress fields and the changelog from the package's readme.txt, plugin header or theme style.css.
+    required: false
+    default: 'true'
+  fields:
+    description: Extra release fields as key=value lines, for other software types or custom fields.
+    required: false
+    default: ''
+  make-current:
+    description: Make the release the current one of its channel.
+    required: false
+    default: 'true'
+  notify:
+    description: Queue the release email to customers.
+    required: false
+    default: 'false'
+
+outputs:
+  release-id:
+    description: ID of the release in DLM.
+    value: ${{ steps.publish.outputs.release-id }}
+  version:
+    description: Published version.
+    value: ${{ steps.publish.outputs.version }}
+  channel:
+    description: Release channel.
+    value: ${{ steps.publish.outputs.channel }}
+  created:
+    description: true for a new release, false when this version was already published with the same file.
+    value: ${{ steps.publish.outputs.created }}
+  current:
+    description: Whether the release is the current one of its channel.
+    value: ${{ steps.publish.outputs.current }}
+  sha256:
+    description: SHA-256 of the published file.
+    value: ${{ steps.publish.outputs.sha256 }}
+
+runs:
+  using: composite
+  steps:
+    - id: publish
+      shell: bash
+      run: '"$GITHUB_ACTION_PATH/publish.sh"'
+      env:
+        DLM_URL: ${{ inputs.url }}
+        DLM_CONSUMER_KEY: ${{ inputs.consumer-key }}
+        DLM_CONSUMER_SECRET: ${{ inputs.consumer-secret }}
+        DLM_SOFTWARE_ID: ${{ inputs.software-id }}
+        DLM_FILE: ${{ inputs.file }}
+        DLM_VERSION: ${{ inputs.version }}
+        DLM_CHANNEL: ${{ inputs.channel }}
+        DLM_CHANGELOG: ${{ inputs.changelog }}
+        DLM_CHANGELOG_FILE: ${{ inputs.changelog-file }}
+        DLM_TESTED_WP: ${{ inputs.tested-wp }}
+        DLM_REQUIRES_WP: ${{ inputs.requires-wp }}
+        DLM_REQUIRES_PHP: ${{ inputs.requires-php }}
+        DLM_UPGRADE_NOTICE: ${{ inputs.upgrade-notice }}
+        DLM_READ_PACKAGE: ${{ inputs.read-package }}
+        DLM_FIELDS: ${{ inputs.fields }}
+        DLM_MAKE_CURRENT: ${{ inputs.make-current }}
+        DLM_NOTIFY: ${{ inputs.notify }}

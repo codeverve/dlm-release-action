@@ -1,0 +1,60 @@
+name: Test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  script:
+    name: publish.sh (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+      - name: Shellcheck
+        if: runner.os == 'Linux'
+        run: shellcheck -x publish.sh
+      - name: Tests against a mock store
+        run: python3 -I -m unittest discover -s tests -v
+
+  action:
+    name: The action itself
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Start a mock store
+        run: |
+          python3 -I tests/mock_store.py 8765 &
+          for _ in $(seq 1 20); do curl -s -o /dev/null http://127.0.0.1:8765/ && break; sleep 0.5; done
+      - name: Build a package
+        run: |
+          mkdir -p build/example-plugin
+          printf '<?php\n/**\n * Plugin Name: Example\n * Requires at least: 6.6\n * Tested up to: 7.1\n * Requires PHP: 8.1\n */\n' > build/example-plugin/example-plugin.php
+          (cd build && zip -qr example-plugin.zip example-plugin)
+      - id: release
+        uses: ./
+        with:
+          url: http://127.0.0.1:8765
+          consumer-key: ck_test
+          consumer-secret: cs_test
+          software-id: 12
+          file: build/example-plugin.zip
+          version: example-plugin-v1.2.0-beta.1
+      - name: Check the outputs
+        env:
+          RELEASE_ID: ${{ steps.release.outputs.release-id }}
+          VERSION: ${{ steps.release.outputs.version }}
+          CREATED: ${{ steps.release.outputs.created }}
+          SHA256: ${{ steps.release.outputs.sha256 }}
+        run: |
+          test "$RELEASE_ID" = 42
+          test "$VERSION" = 1.2.0-beta.1 || { echo "version: $VERSION"; exit 1; }
+          test "$CREATED" = true
+          test "$SHA256" = "$(sha256sum build/example-plugin.zip | cut -d' ' -f1)"
